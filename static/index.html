@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Student Academic Risk</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #6b7280; --border: #e2e5ea;
+      --accent: #2f5bea; --dropout: #d64545; --enrolled: #d99a1e; --graduate: #2e9e5b;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #12151b; --card: #1b1f27; --text: #e6e8ec; --muted: #9aa3b2; --border: #2c323d; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    header { padding: 32px 16px 8px; max-width: 1100px; margin: 0 auto; }
+    h1 { margin: 0 0 4px; font-size: 26px; }
+    header p { margin: 0; color: var(--muted); }
+    main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+    @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+    fieldset { border: 1px solid var(--border); background: var(--card); border-radius: 10px; padding: 16px; margin: 0 0 16px; }
+    legend { font-weight: 600; padding: 0 6px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+    label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+    input, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; }
+    input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+    aside { position: sticky; top: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+    button { width: 100%; font: inherit; font-weight: 600; color: #fff; background: var(--accent); border: 0; border-radius: 8px; padding: 11px; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    .secondary { background: transparent; color: var(--accent); border: 1px solid var(--border); margin-top: 8px; }
+    #result { margin-top: 20px; }
+    .label { font-size: 13px; color: var(--muted); }
+    .prediction { font-size: 28px; font-weight: 700; margin: 2px 0 14px; }
+    .bar { margin: 8px 0; font-size: 13px; }
+    .bar-track { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; margin-top: 3px; }
+    .bar-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+    .error { color: var(--dropout); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Student Academic Risk</h1>
+    <p>Sagt voraus, ob ein Studierender das Studium abbricht, weiter eingeschrieben bleibt oder abschließt.</p>
+  </header>
+  <main>
+    <form id="form"></form>
+    <aside>
+      <button type="submit" form="form" id="submit">Vorhersage berechnen</button>
+      <button type="button" class="secondary" id="example-dropout">Beispiel: Abbruch-Risiko</button>
+      <button type="button" class="secondary" id="example-graduate">Beispiel: Absolvent</button>
+      <div id="result"></div>
+    </aside>
+  </main>
+
+<script>
+const YES_NO = [[1, "Ja"], [0, "Nein"]];
+const COURSES = [
+  [33, "Biofuel Production Technologies"], [171, "Animation and Multimedia Design"],
+  [8014, "Social Service (evening)"], [9003, "Agronomy"], [9070, "Communication Design"],
+  [9085, "Veterinary Nursing"], [9119, "Informatics Engineering"], [9130, "Equinculture"],
+  [9147, "Management"], [9238, "Social Service"], [9254, "Tourism"], [9500, "Nursing"],
+  [9556, "Oral Hygiene"], [9670, "Advertising and Marketing Management"],
+  [9773, "Journalism and Communication"], [9853, "Basic Education"], [9991, "Management (evening)"],
+];
+
+// [API-Feldname, Anzeigename, Optionen oder null für Zahleneingabe]
+const SECTIONS = [
+  ["Person", [
+    ["Gender", "Geschlecht", [[1, "Männlich"], [0, "Weiblich"]]],
+    ["Age at enrollment", "Alter bei Einschreibung"],
+    ["Marital status", "Familienstand (Code)"],
+    ["Nacionality", "Nationalität (Code)"],
+    ["International", "International", YES_NO],
+    ["Displaced", "Nicht am Heimatort", YES_NO],
+    ["Educational special needs", "Besonderer Förderbedarf", YES_NO],
+  ]],
+  ["Bewerbung & Studium", [
+    ["Course", "Studiengang", COURSES],
+    ["Daytime/evening attendance", "Unterricht", [[1, "Tagsüber"], [0, "Abends"]]],
+    ["Application mode", "Bewerbungsart (Code)"],
+    ["Application order", "Bewerbungspriorität (0–9)"],
+    ["Previous qualification", "Vorherige Qualifikation (Code)"],
+    ["Previous qualification (grade)", "Note vorherige Qualifikation (0–200)"],
+    ["Admission grade", "Zulassungsnote (0–200)"],
+  ]],
+  ["Familie", [
+    ["Mother's qualification", "Qualifikation Mutter (Code)"],
+    ["Father's qualification", "Qualifikation Vater (Code)"],
+    ["Mother's occupation", "Beruf Mutter (Code)"],
+    ["Father's occupation", "Beruf Vater (Code)"],
+  ]],
+  ["Finanzen", [
+    ["Tuition fees up to date", "Studiengebühren bezahlt", YES_NO],
+    ["Debtor", "Schuldner", YES_NO],
+    ["Scholarship holder", "Stipendium", YES_NO],
+  ]],
+  ["1. Semester", [
+    ["Curricular units 1st sem (credited)", "Angerechnete Module"],
+    ["Curricular units 1st sem (enrolled)", "Belegte Module"],
+    ["Curricular units 1st sem (evaluations)", "Prüfungen"],
+    ["Curricular units 1st sem (approved)", "Bestandene Module"],
+    ["Curricular units 1st sem (grade)", "Durchschnittsnote (0–20)"],
+    ["Curricular units 1st sem (without evaluations)", "Module ohne Prüfung"],
+  ]],
+  ["2. Semester", [
+    ["Curricular units 2nd sem (credited)", "Angerechnete Module"],
+    ["Curricular units 2nd sem (enrolled)", "Belegte Module"],
+    ["Curricular units 2nd sem (evaluations)", "Prüfungen"],
+    ["Curricular units 2nd sem (approved)", "Bestandene Module"],
+    ["Curricular units 2nd sem (grade)", "Durchschnittsnote (0–20)"],
+    ["Curricular units 2nd sem (without evaluations)", "Module ohne Prüfung"],
+  ]],
+  ["Wirtschaftslage", [
+    ["Unemployment rate", "Arbeitslosenquote (%)"],
+    ["Inflation rate", "Inflationsrate (%)"],
+    ["GDP", "BIP-Wachstum (%)"],
+  ]],
+];
+
+// Zwei echte Zeilen aus data/data.csv
+const EXAMPLES = {
+  dropout: [1,17,5,171,1,1,122.0,1,19,12,5,9,127.3,1,0,0,1,1,0,20,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,10.8,1.4,1.74],
+  graduate: [1,15,1,9254,1,1,160.0,1,1,3,3,3,142.5,1,0,0,0,1,0,19,0,0,6,6,6,14.0,0,0,6,6,6,13.67,0,13.9,-0.3,0.79],
+};
+const CSV_ORDER = ["Marital status","Application mode","Application order","Course","Daytime/evening attendance",
+  "Previous qualification","Previous qualification (grade)","Nacionality","Mother's qualification","Father's qualification",
+  "Mother's occupation","Father's occupation","Admission grade","Displaced","Educational special needs","Debtor",
+  "Tuition fees up to date","Gender","Scholarship holder","Age at enrollment","International",
+  "Curricular units 1st sem (credited)","Curricular units 1st sem (enrolled)","Curricular units 1st sem (evaluations)",
+  "Curricular units 1st sem (approved)","Curricular units 1st sem (grade)","Curricular units 1st sem (without evaluations)",
+  "Curricular units 2nd sem (credited)","Curricular units 2nd sem (enrolled)","Curricular units 2nd sem (evaluations)",
+  "Curricular units 2nd sem (approved)","Curricular units 2nd sem (grade)","Curricular units 2nd sem (without evaluations)",
+  "Unemployment rate","Inflation rate","GDP"];
+
+const COLORS = { Dropout: "var(--dropout)", Enrolled: "var(--enrolled)", Graduate: "var(--graduate)" };
+const NAMES = { Dropout: "Abbruch", Enrolled: "Eingeschrieben", Graduate: "Absolvent" };
+
+const form = document.getElementById("form");
+for (const [title, fields] of SECTIONS) {
+  const fs = document.createElement("fieldset");
+  fs.innerHTML = `<legend>${title}</legend><div class="grid"></div>`;
+  const grid = fs.querySelector(".grid");
+  for (const [key, label, options] of fields) {
+    const wrap = document.createElement("label");
+    wrap.textContent = label;
+    const input = document.createElement(options ? "select" : "input");
+    input.name = key;
+    if (options) {
+      for (const [value, text] of options) input.add(new Option(text, value));
+    } else {
+      input.type = "number";
+      input.step = "any";
+      input.required = true;
+    }
+    wrap.appendChild(input);
+    grid.appendChild(wrap);
+  }
+  form.appendChild(fs);
+}
+
+function fillExample(name) {
+  CSV_ORDER.forEach((key, i) => { form.elements[key].value = EXAMPLES[name][i]; });
+}
+document.getElementById("example-dropout").onclick = () => fillExample("dropout");
+document.getElementById("example-graduate").onclick = () => fillExample("graduate");
+fillExample("graduate");
+
+const result = document.getElementById("result");
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const button = document.getElementById("submit");
+  button.disabled = true;
+  const payload = {};
+  for (const el of form.elements) if (el.name) payload[el.name] = Number(el.value);
+  try {
+    const res = await fetch("/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    const p = data.prediction;
+    result.innerHTML = `
+      <div class="label">Vorhersage</div>
+      <div class="prediction" style="color:${COLORS[p]}">${NAMES[p] ?? p}</div>
+      ${Object.entries(data.probabilities).map(([cls, prob]) => `
+        <div class="bar">${NAMES[cls] ?? cls} · ${(prob * 100).toFixed(1)} %
+          <div class="bar-track"><div class="bar-fill" style="width:${prob * 100}%;background:${COLORS[cls]}"></div></div>
+        </div>`).join("")}`;
+  } catch (err) {
+    result.innerHTML = `<p class="error">Fehler: ${err.message}</p>`;
+  } finally {
+    button.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

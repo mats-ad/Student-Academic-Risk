@@ -1,4 +1,4 @@
-# Python-generated files
+# Python
 __pycache__/
 *.py[oc]
 build/
@@ -6,5 +6,21 @@ dist/
 wheels/
 *.egg-info
 
-# Virtual environments
-.venv
+# Virtual environment
+.venv/
+
+# Environment variables / secrets
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# MLflow (local tracking data)
+mlruns/
+mlartifacts/
+mlflow.db
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
